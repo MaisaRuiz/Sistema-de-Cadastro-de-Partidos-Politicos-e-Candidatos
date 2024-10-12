@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cadastro de Partidos</title>
+  <link rel="stylesheet" href="./css/partido.css">
+</head>
+
+<body>
+  <div class="container">
+
+    <div class="header">
+      <button class="voltar" onclick="window.location.href='./home.html'">VOLTAR</button>
+      </br>
+      <h1>Cadastro de Partidos</h1>
+    </div>
+    <form id="form-partido">
+      <input type="hidden" id="id-partido" name="id-partido">
+      <label for="nome">Nome do Partido:</label>
+      <input type="text" id="nome" name="nome" required>
+
+      <label for="sigla">Sigla:</label>
+      <input type="text" id="sigla" name="sigla" required>
+
+      <label for="numero">Número de Registro:</label>
+      <input type="text" id="numero" name="numero" required>
+
+      <button type="submit" id="btn-submit">Cadastrar Partido</button>
+    </form>
+
+    <div class="listagem">
+      <h2>Partidos Cadastrados</h2>
+      <table id="tabela-partidos">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Sigla</th>
+            <th>Número de Registro</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Dados dos partidos serão inseridos aqui via JavaScript -->
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <script>
+    let editando = false;
+
+    function carregarPartidos() {
+      fetch('http://localhost:3001/partido')
+        .then((resposta) => resposta.json())
+        .then((partidos) => {
+          const tabelaBody = document.getElementById('tabela-partidos').getElementsByTagName('tbody')[0];
+          tabelaBody.innerHTML = '';
+
+          partidos.forEach((partido) => {
+            const row = tabelaBody.insertRow();
+
+            const cellNome = row.insertCell(0);
+            const cellSigla = row.insertCell(1);
+            const cellNumero = row.insertCell(2);
+            const cellAcoes = row.insertCell(3);
+
+            cellNome.textContent = partido.nome;
+            cellSigla.textContent = partido.sigla;
+            cellNumero.textContent = partido.numero_registro;
+
+
+            const btnEditar = document.createElement('button');
+            btnEditar.textContent = 'Editar';
+            btnEditar.onclick = () => editarPartido(partido);
+
+            const btnExcluir = document.createElement('button');
+            btnExcluir.textContent = 'Excluir';
+            btnExcluir.onclick = () => excluirPartido(partido.id);
+
+            const divAcoes = document.createElement('div');
+            divAcoes.classList.add('acoes-partido');
+            divAcoes.appendChild(btnEditar);
+            divAcoes.appendChild(btnExcluir);
+
+            cellAcoes.appendChild(divAcoes);
+          });
+        })
+        .catch((erro) => console.error('Erro ao carregar partidos:', erro.message));
+    }
+
+
+    function cadastrarOuEditarPartido(event) {
+      event.preventDefault();
+
+      const id = document.getElementById('id-partido').value;
+      const nome = document.getElementById('nome').value;
+      const sigla = document.getElementById('sigla').value;
+      const numero = document.getElementById('numero').value;
+
+      const metodo = editando ? 'PUT' : 'POST';
+      const url = editando ? `http://localhost:3001/partido/${id}` : 'http://localhost:3001/partido';
+
+      fetch(url, {
+        method: metodo,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nome: nome,
+          sigla: sigla,
+          numero_registro: numero,
+        }),
+      })
+        .then((resposta) => resposta.json())
+        .then((dados) => {
+          console.log('Partido salvo:', dados);
+          carregarPartidos();
+          resetarFormulario();
+        })
+        .catch((erro) => console.error('Erro ao salvar partido:', erro.message));
+    }
+
+    function editarPartido(partido) {
+      document.getElementById('id-partido').value = partido.id;
+      document.getElementById('nome').value = partido.nome;
+      document.getElementById('sigla').value = partido.sigla;
+      document.getElementById('numero').value = partido.numero_registro;
+
+      document.getElementById('btn-submit').textContent = 'Salvar Edição';
+      editando = true;
+    }
+
+
+    function excluirPartido(id) {
+      if (confirm('Você tem certeza que deseja excluir este partido?')) {
+        fetch(`http://localhost:3001/partido/${id}`, {
+          method: 'DELETE',
+        })
+          .then((resposta) => {
+            if (!resposta.ok) {
+              throw new Error('Erro ao excluir partido');
+            }
+            return resposta.json();
+          })
+          .then((dados) => {
+            console.log('Partido excluído:', dados);
+            carregarPartidos();
+          })
+          .catch((erro) => {
+            console.error('Erro ao excluir partido:', erro.message);
+            alert('Ocorreu um erro ao excluir o partido.');
+          });
+      }
+    }
+
+    function resetarFormulario() {
+      document.getElementById('id-partido').value = '';
+      document.getElementById('nome').value = '';
+      document.getElementById('sigla').value = '';
+      document.getElementById('numero').value = '';
+      document.getElementById('btn-submit').textContent = 'Cadastrar Partido';
+      editando = false;
+    }
+
+    document.getElementById('form-partido').addEventListener('submit', cadastrarOuEditarPartido);
+
+    window.onload = carregarPartidos;
+  </script>
+
+
+</body>
+
+</html>

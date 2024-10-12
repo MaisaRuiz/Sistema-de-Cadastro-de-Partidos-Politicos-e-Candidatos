@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cadastro de Candidatos</title>
+  <link rel="stylesheet" href="./css/candidato.css">
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <button class="voltar" onclick="window.location.href='./home.html'">VOLTAR</button>
+      <h1>Cadastro de Candidatos</h1>
+    </div>
+
+    <form id="form-candidato">
+      <input type="hidden" id="id-candidato" name="id-candidato">
+      <label for="nome">Nome do Candidato:</label>
+      <input type="text" id="nome" name="nome" required>
+
+      <label for="partido">Partido:</label>
+      <select id="partido-select" name="partido" required></select>
+
+      <label for="numero">Número do Candidato:</label>
+      <input type="text" id="numero" name="numero" required pattern="\d+" title="Por favor, insira apenas números.">
+
+      <button type="submit" id="btn-submit">Cadastrar Candidato</button>
+    </form>
+
+    <div class="listagem">
+      <h2>Candidatos Cadastrados</h2>
+      <table id="tabela-candidatos">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Partido</th>
+            <th>Número</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Dados dos candidatos serão inseridos aqui via JavaScript -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let editando = false;
+    let partidos = []; // Armazena a lista de partidos
+    let candidatoAtual = {}; // Armazena os dados do candidato atualmente editado
+
+    // Função para carregar partidos
+    function carregarPartidos() {
+      fetch('http://localhost:3001/partido')
+        .then((resposta) => {
+          if (!resposta.ok) {
+            throw new Error('Erro ao carregar partidos');
+          }
+          return resposta.json();
+        })
+        .then((dados) => {
+          console.log('Partidos:', dados);
+          partidos = dados; // Armazena partidos na variável global
+          const selectPartidos = document.getElementById('partido-select');
+          selectPartidos.innerHTML = '';
+          const optionDefault = document.createElement('option');
+          optionDefault.value = '';
+          optionDefault.text = 'Selecione um partido';
+          selectPartidos.appendChild(optionDefault);
+          dados.forEach((partido) => {
+            const option = document.createElement('option');
+            option.value = partido.id;
+            option.text = partido.sigla;
+            selectPartidos.appendChild(option);
+          });
+        })
+        .catch((erro) => {
+          console.error('Erro:', erro.message);
+          alert('Erro ao carregar partidos: ' + erro.message);
+        });
+    }
+
+    // Função para carregar candidatos
+    function carregarCandidatos() {
+      fetch('http://localhost:3001/candidato')
+        .then((resposta) => {
+          if (!resposta.ok) {
+            throw new Error('Erro ao carregar candidatos');
+          }
+          return resposta.json();
+        })
+        .then((candidatos) => {
+          console.log('Candidatos:', candidatos);
+          const tabelaBody = document.getElementById('tabela-candidatos').getElementsByTagName('tbody')[0];
+          tabelaBody.innerHTML = '';
+
+          candidatos.forEach((candidato) => {
+            const row = tabelaBody.insertRow();
+
+            const cellNome = row.insertCell(0);
+            const cellPartido = row.insertCell(1);
+            const cellNumero = row.insertCell(2);
+            const cellAcoes = row.insertCell(3);
+
+            cellNome.textContent = candidato.nome;
+
+            const partidoEncontrado = partidos.find(partido => partido.id == candidato.partido_id);
+            cellPartido.textContent = partidoEncontrado ? partidoEncontrado.sigla : 'Desconhecido';
+
+            cellNumero.textContent = candidato.numero_candidato;
+
+            const btnEditar = document.createElement('button');
+            btnEditar.textContent = 'Editar';
+            btnEditar.onclick = () => editarCandidato(candidato);
+
+            const btnExcluir = document.createElement('button');
+            btnExcluir.textContent = 'Excluir';
+            btnExcluir.onclick = () => excluirCandidato(candidato.id);
+
+            const divAcoes = document.createElement('div');
+            divAcoes.classList.add('acoes-candidato');
+            divAcoes.appendChild(btnEditar);
+            divAcoes.appendChild(btnExcluir);
+
+            cellAcoes.appendChild(divAcoes);
+          });
+        })
+        .catch((erro) => {
+          console.error('Erro ao carregar candidatos:', erro.message);
+          alert('Erro ao carregar candidatos: ' + erro.message);
+        });
+    }
+
+    // Função para cadastrar ou editar candidatos
+    function cadastrarOuEditarCandidato(event) {
+      event.preventDefault();
+
+      const id = document.getElementById('id-candidato').value;
+      const nome = document.getElementById('nome').value;
+      const partido = document.getElementById('partido-select').value;
+      const numero = document.getElementById('numero').value;
+
+      // Verifica se todos os campos estão preenchidos
+      if (!nome || !partido || !numero) {
+        alert('Por favor, preencha todos os campos.');
+        return;
+      }
+
+      // Verifica se o número do candidato é um valor numérico
+      if (!/^\d+$/.test(numero)) {
+        alert('O número do candidato deve ser um valor numérico.');
+        return;
+      }
+
+      const metodo = editando ? 'PUT' : 'POST';
+      const url = editando ? `http://localhost:3001/candidato/${id}` : 'http://localhost:3001/candidato';
+
+      fetch(url, {
+        method: metodo,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nome: nome,
+          partido_id: partido,
+          numero_candidato: numero, // Corrigido para atualizar o número
+        }),
+      })
+        .then((resposta) => {
+          if (!resposta.ok) {
+            throw new Error('Erro ao salvar candidato');
+          }
+          return resposta.json();
+        })
+        .then((dados) => {
+          console.log('Candidato salvo:', dados);
+          carregarCandidatos();
+          resetarFormulario();
+        })
+        .catch((erro) => {
+          console.error('Erro ao salvar candidato:', erro.message);
+          alert('Erro ao salvar candidato: ' + erro.message);
+        });
+    }
+
+    // Função para editar um candidato
+    function editarCandidato(candidato) {
+      candidatoAtual = candidato; // Armazena os dados do candidato atual
+      document.getElementById('id-candidato').value = candidato.id;
+      document.getElementById('nome').value = candidato.nome;
+      document.getElementById('numero').value = candidato.numero_candidato; // Atualizado corretamente
+      document.getElementById('partido-select').value = candidato.partido_id;
+      editando = true;
+    }
+
+    // Função para excluir um candidato
+    function excluirCandidato(id) {
+      if (confirm('Tem certeza que deseja excluir este candidato?')) {
+        fetch(`http://localhost:3001/candidato/${id}`, {
+          method: 'DELETE',
+        })
+          .then((resposta) => {
+            if (!resposta.ok) {
+              throw new Error('Erro ao excluir candidato');
+            }
+            carregarCandidatos();
+          })
+          .catch((erro) => {
+            console.error('Erro ao excluir candidato:', erro.message);
+            alert('Erro ao excluir candidato: ' + erro.message);
+          });
+      }
+    }
+
+    // Função para resetar o formulário
+    function resetarFormulario() {
+      document.getElementById('id-candidato').value = '';
+      document.getElementById('nome').value = '';
+      document.getElementById('numero').value = '';
+      document.getElementById('partido-select').value = '';
+      editando = false;
+      candidatoAtual = {}; // Limpa os dados do candidato atual
+    }
+
+    document.getElementById('form-candidato').addEventListener('submit', cadastrarOuEditarCandidato);
+
+    // Chamada inicial para carregar dados
+    carregarPartidos();
+    carregarCandidatos();
+  </script>
+</body>
+
+</html>
